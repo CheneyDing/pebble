@@ -106,6 +106,9 @@ type VersionEdit struct {
 
 	// Column Family
 	ColumnFamily uint64
+
+	// Column Family Name (only availble when adding new cf)
+	ColumnFamilyName string
 }
 
 // Decode decodes an edit from the specified reader.
@@ -282,10 +285,24 @@ func (v *VersionEdit) Decode(r io.Reader) error {
 			}
 			v.ColumnFamily = n
 		
-		case tagColumnFamilyAdd, tagColumnFamilyDrop, tagMaxColumnFamily:
-			// return base.CorruptionErrorf("column families are not supported")
-			// ignore other column family commands
-			return nil
+		case tagColumnFamilyAdd:
+			s, err := d.readBytes()
+			if err != nil {
+				return err
+			}
+			v.ColumnFamilyName = string(s)
+
+		case tagColumnFamilyDrop:
+			_, err := d.readUvarint()
+			if err != nil {
+				return err
+			}
+
+		case tagMaxColumnFamily:
+			_, err := d.readUvarint()
+			if err != nil {
+				return err
+			}
 
 		default:
 			return errCorruptManifest

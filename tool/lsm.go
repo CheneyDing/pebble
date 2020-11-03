@@ -63,7 +63,7 @@ type lsmT struct {
 	fmtKey keyFormatter
 	embed  bool
 	pretty bool
-	cf int
+	cfName string
 
 	cmp    *base.Comparer
 	state  lsmState
@@ -88,7 +88,7 @@ Visualize the evolution of an LSM from the version edits in a MANIFEST.
 	}
 
 	l.Root.Flags().Var(&l.fmtKey, "key", "key formatter")
-	l.Root.Flags().IntVar(&l.cf, "cf", 0, "column family")
+	l.Root.Flags().StringVar(&l.cfName, "cf", "default", "column family name")
 	l.Root.Flags().BoolVar(&l.embed, "embed", true, "embed javascript in HTML (disable for development)")
 	l.Root.Flags().BoolVar(&l.pretty, "pretty", false, "pretty JSON output")
 	return l
@@ -120,6 +120,7 @@ func (l *lsmT) runLSM(cmd *cobra.Command, args []string) {
 	} else {
 		fmt.Fprintf(w, "<script src=\"data/d3.v5.min.js\"></script>\n")
 	}
+	fmt.Fprintf(w, "<p>Column family: %s</p>\n", l.cfName)
 	fmt.Fprintf(w, "<script type=\"text/javascript\">\n")
 	fmt.Fprintf(w, "data = %s\n", l.formatJSON(l.state))
 	fmt.Fprintf(w, "</script>\n")
@@ -141,6 +142,8 @@ func (l *lsmT) readManifest(path string) []*manifest.VersionEdit {
 
 	l.state.Manifest = path
 
+	cfList := make([]string, 0)
+
 	var edits []*manifest.VersionEdit
 	w := l.Root.OutOrStdout()
 	rr := record.NewReader(f, 0 /* logNum */)
@@ -160,8 +163,18 @@ func (l *lsmT) readManifest(path string) []*manifest.VersionEdit {
 			break
 		}
 
-		if int(ve.ColumnFamily) != l.cf {
-			continue;
+		if len(ve.ColumnFamilyName) > 0 {
+			cfList = append(cfList, ve.ColumnFamilyName)
+		}
+
+		if ve.ColumnFamily == 0 {
+			if l.cfName != "default" {
+				continue;
+			}
+		} else {
+			if cfList[ve.ColumnFamily - 1] != l.cfName {
+				continue;
+			}
 		}
 
 		edits = append(edits, ve)

@@ -19,10 +19,12 @@ And then, you can visualize any rocksdb LSM tree.
 
 ```bash
 cd cmd/pebble
-go run . lsm ~/rocksdb-data/MANIFEST-xxxxxxx --cf=1 > result-1.html
+go run . lsm ~/rocksdb-data/MANIFEST-xxxxxxx --cf=write > result-1.html
 ```
 
-If `cf` is not supplied in command-line, default cf 0 is used.
+In TiKV, you can also use column family `lock`, `write` or `raft`.
+
+If `cf` is not supplied in command-line, `default` is used.
 
 #### [Nightly benchmarks](https://cockroachdb.github.io/pebble/)
 
