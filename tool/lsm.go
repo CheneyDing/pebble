@@ -63,6 +63,7 @@ type lsmT struct {
 	fmtKey keyFormatter
 	embed  bool
 	pretty bool
+	cf int
 
 	cmp    *base.Comparer
 	state  lsmState
@@ -87,6 +88,7 @@ Visualize the evolution of an LSM from the version edits in a MANIFEST.
 	}
 
 	l.Root.Flags().Var(&l.fmtKey, "key", "key formatter")
+	l.Root.Flags().IntVar(&l.cf, "cf", 0, "column family")
 	l.Root.Flags().BoolVar(&l.embed, "embed", true, "embed javascript in HTML (disable for development)")
 	l.Root.Flags().BoolVar(&l.pretty, "pretty", false, "pretty JSON output")
 	return l
@@ -157,6 +159,11 @@ func (l *lsmT) readManifest(path string) []*manifest.VersionEdit {
 			fmt.Fprintf(w, "%s\n", err)
 			break
 		}
+
+		if int(ve.ColumnFamily) != l.cf {
+			continue;
+		}
+
 		edits = append(edits, ve)
 
 		if ve.ComparerName != "" {

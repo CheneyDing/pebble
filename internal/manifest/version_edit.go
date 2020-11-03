@@ -103,6 +103,9 @@ type VersionEdit struct {
 	// found that there was no overlapping file at the higher level).
 	DeletedFiles map[DeletedFileEntry]*FileMetadata
 	NewFiles     []NewFileEntry
+
+	// Column Family
+	ColumnFamily uint64
 }
 
 // Decode decodes an edit from the specified reader.
@@ -272,8 +275,17 @@ func (v *VersionEdit) Decode(r io.Reader) error {
 			}
 			v.ObsoletePrevLogNum = n
 
-		case tagColumnFamily, tagColumnFamilyAdd, tagColumnFamilyDrop, tagMaxColumnFamily:
-			return base.CorruptionErrorf("column families are not supported")
+		case tagColumnFamily:
+			n, err := d.readUvarint()
+			if err != nil {
+				return err
+			}
+			v.ColumnFamily = n
+		
+		case tagColumnFamilyAdd, tagColumnFamilyDrop, tagMaxColumnFamily:
+			// return base.CorruptionErrorf("column families are not supported")
+			// ignore other column family commands
+			return nil
 
 		default:
 			return errCorruptManifest
