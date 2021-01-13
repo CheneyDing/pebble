@@ -63,6 +63,7 @@ type lsmT struct {
 	fmtKey keyFormatter
 	embed  bool
 	pretty bool
+	cfName string
 
 	cmp    *base.Comparer
 	state  lsmState
@@ -87,13 +88,14 @@ Visualize the evolution of an LSM from the version edits in a MANIFEST.
 	}
 
 	l.Root.Flags().Var(&l.fmtKey, "key", "key formatter")
+	l.Root.Flags().StringVar(&l.cfName, "cf", "default", "column family name")
 	l.Root.Flags().BoolVar(&l.embed, "embed", true, "embed javascript in HTML (disable for development)")
 	l.Root.Flags().BoolVar(&l.pretty, "pretty", false, "pretty JSON output")
 	return l
 }
 
 func (l *lsmT) runLSM(cmd *cobra.Command, args []string) {
-	edits := l.readManifest(args[0])
+	edits, cfList := l.readManifest(args[0])
 	if edits == nil {
 		return
 	}
@@ -118,6 +120,7 @@ func (l *lsmT) runLSM(cmd *cobra.Command, args []string) {
 	} else {
 		fmt.Fprintf(w, "<script src=\"data/d3.v5.min.js\"></script>\n")
 	}
+	fmt.Fprintf(w, "<p>Column family: %s (of %v)</p>\n", l.cfName, cfList)
 	fmt.Fprintf(w, "<script type=\"text/javascript\">\n")
 	fmt.Fprintf(w, "data = %s\n", l.formatJSON(l.state))
 	fmt.Fprintf(w, "</script>\n")
@@ -129,15 +132,17 @@ func (l *lsmT) runLSM(cmd *cobra.Command, args []string) {
 	fmt.Fprintf(w, "</body>\n</html>\n")
 }
 
-func (l *lsmT) readManifest(path string) []*manifest.VersionEdit {
+func (l *lsmT) readManifest(path string) ([]*manifest.VersionEdit, []string) {
 	f, err := l.opts.FS.Open(path)
 	if err != nil {
 		fmt.Fprintf(l.Root.OutOrStderr(), "%s\n", err)
-		return nil
+		return nil, nil
 	}
 	defer f.Close()
 
 	l.state.Manifest = path
+
+	cfList := make([]string, 0)
 
 	var edits []*manifest.VersionEdit
 	w := l.Root.OutOrStdout()
@@ -157,20 +162,35 @@ func (l *lsmT) readManifest(path string) []*manifest.VersionEdit {
 			fmt.Fprintf(w, "%s\n", err)
 			break
 		}
+
+		if len(ve.ColumnFamilyName) > 0 {
+			cfList = append(cfList, ve.ColumnFamilyName)
+		}
+
+		if ve.ColumnFamily == 0 {
+			if l.cfName != "default" {
+				continue;
+			}
+		} else {
+			if cfList[ve.ColumnFamily - 1] != l.cfName {
+				continue;
+			}
+		}
+
 		edits = append(edits, ve)
 
 		if ve.ComparerName != "" {
 			l.cmp = l.comparers[ve.ComparerName]
 			if l.cmp == nil {
 				fmt.Fprintf(w, "%d: unknown comparer %q\n", i, ve.ComparerName)
-				return nil
+				return nil, nil
 			}
 			l.fmtKey.setForComparer(ve.ComparerName, l.comparers)
 		} else if l.cmp == nil {
 			l.cmp = base.DefaultComparer
 		}
 	}
-	return edits
+	return edits, cfList
 }
 
 func (l *lsmT) buildKeys(edits []*manifest.VersionEdit) {

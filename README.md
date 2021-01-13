@@ -1,5 +1,31 @@
 # Pebble [![Build Status](https://travis-ci.com/cockroachdb/pebble.svg?branch=master)](https://travis-ci.com/cockroachdb/pebble) [![GoDoc](https://godoc.org/github.com/cockroachdb/pebble?status.svg)](https://godoc.org/github.com/cockroachdb/pebble)
 
+## A patched version of pebble with rocksdb key visualization
+
+In this fork, we have added support for rocksdb column family in LSM visualization.
+
+### Usage
+
+First, you may need to download source code.
+
+As I have no experience in packaging a go library, you may have to overwrite pebble repo with this repo.
+
+* clone this repo to `~/go/src/github.com/cockroachdb/pebble`
+* or patch the latest commit of this fork to current `github.com/cockroachdb/pebble` master
+
+Contribution on docs and code is welcomed.
+
+And then, you can visualize any rocksdb LSM tree.
+
+```bash
+cd cmd/pebble
+go run . lsm ~/rocksdb-data/MANIFEST-xxxxxxx --cf=write > result-1.html
+```
+
+In TiKV, you can also use column family `lock`, `write` or `raft`.
+
+If `cf` is not supplied in command-line, `default` is used.
+
 #### [Nightly benchmarks](https://cockroachdb.github.io/pebble/)
 
 Pebble is a LevelDB/RocksDB inspired key-value store focused on
